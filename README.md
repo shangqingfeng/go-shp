@@ -11,12 +11,12 @@ Go library for reading and writing ESRI Shapefiles. This is a pure Golang implem
 ### Usage
 #### Installation
 
-    go get github.com/jonas-p/go-shp
+    go get github.com/shangqingfeng/go-shp
     
 #### Importing
 
 ```go
-import "github.com/jonas-p/go-shp"
+import "github.com/shangqingfeng/go-shp"
 ```
 
 ### Examples
@@ -24,7 +24,9 @@ import "github.com/jonas-p/go-shp"
 
 ```go
 // open a shapefile for reading
-shape, err := shp.Open("points.shp")
+//shape, err := shp.Open("points.shp")
+读取gbkshp
+shape, err := shp.OpenWithEncoding("points.shp","gbk")
 if err != nil { log.Fatal(err) } 
 defer shape.Close()
 	
