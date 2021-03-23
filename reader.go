@@ -1,6 +1,7 @@
 package shp
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -8,6 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
+
+	"github.com/axgle/mahonia"
 )
 
 // Reader provides a interface for reading Shapefiles. Calls
@@ -30,6 +34,7 @@ type Reader struct {
 	dbfNumRecords   int32
 	dbfHeaderLength int16
 	dbfRecordLength int16
+	decoder         *mahonia.Decoder
 }
 
 type readSeekCloser interface {
@@ -40,6 +45,11 @@ type readSeekCloser interface {
 
 // Open opens a Shapefile for reading.
 func Open(filename string) (*Reader, error) {
+	return OpenWithEncoding(filename, "utf-8")
+}
+
+// Open opens a Shapefile for reading.
+func OpenWithEncoding(filename string, encoding string) (*Reader, error) {
 	ext := filepath.Ext(filename)
 	if strings.ToLower(ext) != ".shp" {
 		return nil, fmt.Errorf("Invalid file extension: %s", filename)
@@ -49,6 +59,10 @@ func Open(filename string) (*Reader, error) {
 		return nil, err
 	}
 	s := &Reader{filename: strings.TrimSuffix(filename, ext), shp: shp}
+	if simplifyName(encoding) != "utf8" {
+		decoder := mahonia.NewDecoder(encoding)
+		s.decoder = &decoder
+	}
 	return s, s.readHeaders()
 }
 
@@ -210,6 +224,17 @@ func (r *Reader) openDbf() (err error) {
 	numFields := int(math.Floor(float64(r.dbfHeaderLength-33) / 32.0))
 	r.dbfFields = make([]Field, numFields)
 	binary.Read(r.dbf, binary.LittleEndian, &r.dbfFields)
+	if r.decoder != nil {
+		for j := 0; j < numFields; j++ {
+
+			fieldname := r.dbfFields[j].String()
+			fieldname = r.decoder.ConvertString(fieldname)
+			bytes := []byte(fieldname)
+			for i := 0; i < len(r.dbfFields[j].Name) && i < len(bytes); i++ {
+				r.dbfFields[j].Name[i] = bytes[i]
+			}
+		}
+	}
 	return
 }
 
@@ -245,5 +270,25 @@ func (r *Reader) ReadAttribute(row int, field int) string {
 	r.dbf.Seek(seekTo, io.SeekStart)
 	buf := make([]byte, r.dbfFields[field].Size)
 	r.dbf.Read(buf)
-	return strings.Trim(string(buf[:]), " ")
+	val := strings.Trim(string(buf[:]), " ")
+	if r.decoder != nil {
+		val = r.decoder.ConvertString(val)
+	}
+	return val
+}
+
+func simplifyName(name string) string {
+	var buf bytes.Buffer
+	for _, c := range name {
+		switch {
+		case unicode.IsDigit(c):
+			buf.WriteRune(c)
+		case unicode.IsLetter(c):
+			buf.WriteRune(unicode.ToLower(c))
+		default:
+
+		}
+	}
+
+	return buf.String()
 }

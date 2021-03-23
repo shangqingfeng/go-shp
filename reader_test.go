@@ -227,6 +227,32 @@ func testshapeIdentity(t *testing.T, prefix string, getter shapeGetterFunc) {
 	d.tester(t, d.points, shapes)
 }
 
+func TestReadGBK(t *testing.T) {
+	r, err := OpenWithEncoding("test_files/GBKTest.shp", "GBK")
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	lastFieldIndex := len(r.Fields()) - 1
+	if r.Fields()[0].String() != "井号" {
+		t.Error("字段测试失败：" + r.Fields()[0].String())
+		t.Fail()
+	}
+	if r.Fields()[lastFieldIndex].String() != "所属水" {
+		t.Error("字段测试失败：" + r.Fields()[lastFieldIndex].String())
+		t.Fail()
+	}
+	for r.Next() {
+		if r.Attribute(0) != "测试" {
+			t.Error("属性测试失败" + r.Fields()[0].String() + ":" + r.Attribute(0))
+			t.Fail()
+		}
+		if r.Attribute(lastFieldIndex) != "测试水源" {
+			t.Error("属性测试失败" + r.Fields()[lastFieldIndex].String() + ":" + r.Attribute(lastFieldIndex))
+			t.Fail()
+		}
+	}
+}
+
 func TestReadBBox(t *testing.T) {
 	tests := []struct {
 		filename string
